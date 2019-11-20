@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 
+	"github.com/hellobbn/goerasure/jerasures"
 	"github.com/klauspost/reedsolomon"
 	"github.com/minio/minio/cmd/logger"
 )
@@ -26,6 +27,7 @@ import (
 // Erasure - erasure encoding details.
 type Erasure struct {
 	encoder                  reedsolomon.Encoder
+	jencoder                 jerasures.Coder
 	dataBlocks, parityBlocks int
 	blockSize                int64
 }
@@ -38,6 +40,7 @@ func NewErasure(ctx context.Context, dataBlocks, parityBlocks int, blockSize int
 		blockSize:    blockSize,
 	}
 	e.encoder, err = reedsolomon.New(dataBlocks, parityBlocks, reedsolomon.WithAutoGoroutines(int(e.ShardSize())))
+	e.jencoder = jerasures.NewReedSolVand(dataBlocks, parityBlocks)
 	if err != nil {
 		logger.LogIf(ctx, err)
 		return e, err
@@ -51,16 +54,12 @@ func (e *Erasure) EncodeData(ctx context.Context, data []byte) ([][]byte, error)
 	if len(data) == 0 {
 		return make([][]byte, e.dataBlocks+e.parityBlocks), nil
 	}
-	encoded, err := e.encoder.Split(data)
-	if err != nil {
-		logger.LogIf(ctx, err)
-		return nil, err
-	}
-	if err = e.encoder.Encode(encoded); err != nil {
-		logger.LogIf(ctx, err)
-		return nil, err
-	}
-	return encoded, nil
+
+	// encode using jerasure
+	jdat, jparity, _, err := e.jencoder.Encode(data)
+	// append
+	jdat = append(jdat, jparity...)
+	return jdat, err	// this is a test of encode
 }
 
 // DecodeDataBlocks decodes the given erasure-coded data.
@@ -68,16 +67,30 @@ func (e *Erasure) EncodeData(ctx context.Context, data []byte) ([][]byte, error)
 // It returns an error if the decoding failed.
 func (e *Erasure) DecodeDataBlocks(data [][]byte) error {
 	needsReconstruction := false
-	for _, b := range data[:e.dataBlocks] {
+	erasures := make([]int, e.jencoder.DatBlks()+e.jencoder.PariBlks())
+	i := 0
+	// Scan all datas
+	for j, b := range data[:(e.dataBlocks + e.parityBlocks)] {
 		if b == nil {
 			needsReconstruction = true
-			break
+			//break	// don't break here! need to get all ids
+		} else {
+			data[j] = make([]byte, e.jencoder.BlkSize());	// fill it with block size
+			erasures[i] = j
+			i++
 		}
 	}
+	erasures[i] = -1
 	if !needsReconstruction {
 		return nil
 	}
-	return e.encoder.ReconstructData(data)
+
+	// TODO: erasures needs to be calculated right NOW!
+	data = e.jencoder.Decode(data[:(e.dataBlocks)], data[e.dataBlocks:], e.jencoder.BlkSize(), erasures)
+
+
+	//e.jencoder.Decode(data[:e.dataBlocks], data[e.dataBlocks:], )
+	return nil	// fine
 }
 
 // DecodeDataAndParityBlocks decodes the given erasure-coded data and verifies it.
