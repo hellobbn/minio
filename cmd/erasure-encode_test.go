@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"log"
 	"testing"
 
 	humanize "github.com/dustin/go-humanize"
@@ -78,6 +79,7 @@ var erasureEncodeTests = []struct {
 
 func TestErasureEncode(t *testing.T) {
 	for i, test := range erasureEncodeTests {
+		log.Println("TestErasureEncode: start")
 		setup, err := newErasureTestSetup(test.dataBlocks, test.onDisks-test.dataBlocks, test.blocksize)
 		if err != nil {
 			t.Fatalf("Test %d: failed to create test setup: %v", i, err)
@@ -116,6 +118,7 @@ func TestErasureEncode(t *testing.T) {
 			}
 		}
 		if err == nil {
+			log.Printf("Test %d: err = nil\n", i)
 			if length := int64(len(data[test.offset:])); n != length {
 				t.Errorf("Test %d: invalid number of bytes written: got: #%d want #%d", i, n, length)
 			}

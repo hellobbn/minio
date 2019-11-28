@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"io"
+	"log"
 
 	"sync"
 
@@ -78,6 +79,7 @@ func (e *Erasure) Encode(ctx context.Context, src io.Reader, writers []io.Writer
 	}
 
 	for {
+		log.Println("Encode: here")
 		var blocks [][]byte
 		n, err := io.ReadFull(src, buf)
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {

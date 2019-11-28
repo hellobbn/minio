@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"log"
 
 	"github.com/hellobbn/goerasure/jerasures"
 	"github.com/klauspost/reedsolomon"
@@ -56,10 +57,11 @@ func (e *Erasure) EncodeData(ctx context.Context, data []byte) ([][]byte, error)
 	}
 
 	// encode using jerasure
+	log.Println("EncodeData: Encode here")
 	jdat, jparity, _, err := e.jencoder.Encode(data)
 	// append
 	jdat = append(jdat, jparity...)
-	return jdat, err	// this is a test of encode
+	return jdat, err // this is a test of encode
 }
 
 // DecodeDataBlocks decodes the given erasure-coded data.
@@ -75,7 +77,7 @@ func (e *Erasure) DecodeDataBlocks(data [][]byte) error {
 			needsReconstruction = true
 			//break	// don't break here! need to get all ids
 		} else {
-			data[j] = make([]byte, e.jencoder.BlkSize());	// fill it with block size
+			data[j] = make([]byte, e.jencoder.BlkSize()) // fill it with block size
 			erasures[i] = j
 			i++
 		}
@@ -88,9 +90,8 @@ func (e *Erasure) DecodeDataBlocks(data [][]byte) error {
 	// TODO: erasures needs to be calculated right NOW!
 	data = e.jencoder.Decode(data[:(e.dataBlocks)], data[e.dataBlocks:], e.jencoder.BlkSize(), erasures)
 
-
 	//e.jencoder.Decode(data[:e.dataBlocks], data[e.dataBlocks:], )
-	return nil	// fine
+	return nil // fine
 }
 
 // DecodeDataAndParityBlocks decodes the given erasure-coded data and verifies it.
